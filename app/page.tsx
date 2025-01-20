@@ -11,28 +11,30 @@ export default function Home() {
           <div className="animate-bounce">
             <Beer className="w-16 h-16 text-amber-500" />
           </div>
-          
+            
           <div className="text-center space-y-2">
             <h1 className="text-4xl md:text-6xl font-extrabold text-center">
               <span className="bg-gradient-to-r from-amber-200 via-amber-500 to-amber-200 text-transparent bg-clip-text bg-300% animate-gradient">
                 TRENT
               </span>
               <br />
-              <span className="text-3xl md:text-5xl text-zinc-400">gets</span>
+              <span className="text-3xl md:text-5xl text-zinc-400 font-light italic">
+                gets
+              </span>
               <br />
               <span className="bg-gradient-to-r from-amber-200 via-amber-500 to-amber-200 text-transparent bg-clip-text bg-300% animate-gradient">
                 BENT
               </span>
             </h1>
           </div>
-          
+           
           <p className="text-center text-zinc-300 max-w-md">
             Welcome to the ultimate roast generator! Create hilarious limericks 
             for Trent&apos;s bachelor party by answering a few questions about our 
             beloved groom-to-be.
           </p>
 
-          <Button 
+          <Button
             asChild
             className="bg-amber-500 hover:bg-amber-600 text-black font-bold transition-all duration-300 transform hover:scale-105"
           >
