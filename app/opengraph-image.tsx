@@ -25,7 +25,7 @@ export default function Image() {
         }}
       >
         <img
-          src="https://trentgetsbent.vercel.app/opengraph-image.png"
+          src="https://opengraph.b-cdn.net/production/images/1b37114b-ed94-4b5d-9a50-3cd5e5f1e1f2.png?token=_k9hea49B1aIPWrWhnWBFGw3Cc6ILAbw3JQMmq3EBeU&height=630&width=1200&expires=33273407022"
           alt="Trent gets Bent"
           style={{
             width: '100%',
