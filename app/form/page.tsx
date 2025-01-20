@@ -1,12 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Textarea } from '@/components/ui/textarea'
 import { Progress } from '@/components/ui/progress'
-import { Loader2 } from 'lucide-react'
+import { Mic } from 'lucide-react'
 import { toast } from 'sonner'
 
 const questions = [
@@ -16,41 +15,133 @@ const questions = [
   "What's Trent's most ridiculous habit?",
   "What's something Trent thinks he's good at, but isn't?",
   "What's the funniest thing you've seen Trent do when drunk?",
-  "What's the most annoying thing about Trent?",
-
+  "What's the most annoying thing about Trent?"
 ]
 
 export default function Form() {
   const [step, setStep] = useState(0)
-  const [answers, setAnswers] = useState(Array(questions.length).fill(''))
+  const [isRecording, setIsRecording] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [fullTranscript, setFullTranscript] = useState('')
+  const [recognition, setRecognition] = useState<SpeechRecognition | null>(null)
+  const [audioLevel, setAudioLevel] = useState(0)
+  const audioContext = useRef<AudioContext | null>(null)
+  const analyser = useRef<AnalyserNode | null>(null)
+  const streamRef = useRef<MediaStream | null>(null)
   const router = useRouter()
 
   const progress = ((step + 1) / questions.length) * 100
 
-  const handleNext = () => {
-    if (step < questions.length - 1) {
-      setStep(step + 1)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+      const newRecognition = new SpeechRecognition()
+      newRecognition.continuous = true
+      newRecognition.interimResults = true
+      
+      newRecognition.onresult = (event: SpeechRecognitionEvent) => {
+        const transcript = Array.from(event.results)
+          .map(result => result[0].transcript)
+          .join(' ')
+        setFullTranscript(transcript)
+      }
+
+      newRecognition.onerror = (event: SpeechRecognitionEvent) => {
+        console.error('Speech recognition error:', event.error)
+        if (event.error.error !== 'no-speech') {
+          setIsRecording(false)
+          toast.error('Microphone error. Please try again.')
+        }
+      }
+
+      setRecognition(newRecognition)
     } else {
+      toast.error('Speech recognition is not supported in this browser')
+    }
+
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop())
+      }
+      if (audioContext.current?.state === 'running') {
+        audioContext.current.close()
+      }
+    }
+  }, [])
+
+  const setupAudioVisualization = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      streamRef.current = stream
+      
+      audioContext.current = new AudioContext()
+      analyser.current = audioContext.current.createAnalyser()
+      const source = audioContext.current.createMediaStreamSource(stream)
+      source.connect(analyser.current)
+      analyser.current.fftSize = 256
+      
+      const updateLevel = () => {
+        if (!analyser.current || !isRecording) return
+        const dataArray = new Uint8Array(analyser.current.frequencyBinCount)
+        analyser.current.getByteFrequencyData(dataArray)
+        const average = dataArray.reduce((a, b) => a + b) / dataArray.length
+        setAudioLevel(average)
+        if (isRecording) requestAnimationFrame(updateLevel)
+      }
+      
+      updateLevel()
+    } catch (error) {
+      console.error('Error accessing microphone:', error)
+      throw new Error('Unable to access microphone')
+    }
+  }
+
+  const handleNext = () => {
+    if (step === questions.length - 1) {
       handleSubmit()
+    } else {
+      setStep(step + 1)
     }
   }
 
-  const handlePrevious = () => {
-    if (step > 0) {
-      setStep(step - 1)
+  const handleToggleRecording = async () => {
+    if (!recognition) {
+      toast.error('Speech recognition is not available')
+      return
     }
-  }
 
-  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newAnswers = [...answers]
-    newAnswers[step] = e.target.value
-    setAnswers(newAnswers)
+    if (isRecording) {
+      // Stop recording and submit
+      recognition.stop()
+      setIsRecording(false)
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop())
+      }
+      if (audioContext.current?.state === 'running') {
+        await audioContext.current.close()
+      }
+      handleSubmit()
+    } else {
+      // Start recording
+      try {
+        await setupAudioVisualization()
+        recognition.start()
+        setIsRecording(true)
+        setFullTranscript('')
+      } catch (error) {
+        console.error('Error starting recording:', error)
+        toast.error('Failed to start recording. Please try again.')
+      }
+    }
   }
 
   const handleSubmit = async () => {
+    if (!fullTranscript.trim()) {
+      toast.error('No speech detected. Please try again.')
+      return
+    }
+
     setIsLoading(true)
-    
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 30000)
 
@@ -60,12 +151,11 @@ export default function Form() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ answers }),
+        body: JSON.stringify({ transcript: fullTranscript }),
         signal: controller.signal
       })
 
       clearTimeout(timeoutId)
-
       const data = await response.json()
 
       if (!response.ok || !data.success) {
@@ -87,48 +177,53 @@ export default function Form() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-zinc-900 to-zinc-800 flex flex-col items-center justify-center p-6">
-      <Card className="w-full max-w-lg mx-auto backdrop-blur-sm bg-white/10">
-        <CardContent className="p-6 space-y-6">
+    <main className="min-h-[100dvh] bg-gradient-to-b from-zinc-900 to-zinc-800 flex flex-col items-center justify-center p-4">
+      <Card className="w-full max-w-md mx-auto backdrop-blur-sm bg-white/10">
+        <CardContent className="p-4 space-y-8">
           <div className="space-y-2">
-            <h2 className="text-2xl font-bold text-center text-white">
+            <h2 className="text-xl md:text-2xl font-bold text-center text-white">
               Question {step + 1} of {questions.length}
             </h2>
             <Progress value={progress} className="h-2" />
           </div>
 
-          <div className="space-y-4">
-            <p className="text-lg text-zinc-200">{questions[step]}</p>
-            <Textarea
-              value={answers[step]}
-              onChange={handleChange}
-              placeholder="Type your answer here..."
-              className="min-h-[120px] bg-white/5 border-white/10 text-white"
-              disabled={isLoading}
-            />
-          </div>
+          <div className="space-y-6">
+            <p className="text-lg text-zinc-200 text-center">{questions[step]}</p>
+            
+            {isRecording && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-center">
+                  <div className="w-4 h-4 rounded-full bg-red-500 animate-pulse" />
+                </div>
+                <div className="text-center text-zinc-200 animate-pulse">
+                  Recording in progress...
+                </div>
+                <div className="relative w-full h-2 bg-white/10 rounded-full overflow-hidden">
+                  <div 
+                    className="absolute inset-0 bg-amber-500 transition-all duration-100"
+                    style={{ width: `${(audioLevel / 255) * 100}%` }}
+                  />
+                </div>
+              </div>
+            )}
 
-          <div className="flex justify-between pt-4">
             <Button
-              onClick={handlePrevious}
-              disabled={step === 0 || isLoading}
-              variant="outline"
-              className="bg-white/5 border-white/10 text-white hover:bg-white/10"
-            >
-              Previous
-            </Button>
-            <Button
-              onClick={handleNext}
+              onClick={isRecording ? handleNext : handleToggleRecording}
               disabled={isLoading}
-              className="bg-amber-500 hover:bg-amber-600 text-black"
+              size="lg"
+              className={`w-full h-16 ${
+                isRecording 
+                  ? 'bg-amber-500 hover:bg-amber-600' 
+                  : 'bg-amber-500 hover:bg-amber-600'
+              } text-black transition-colors duration-200`}
             >
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generating...
-                </>
+              {isRecording ? (
+                step === questions.length - 1 ? 'Finish & Generate' : 'Next Question'
               ) : (
-                step === questions.length - 1 ? 'Generate Limerick' : 'Next'
+                <>
+                  <Mic className="mr-2 h-6 w-6" />
+                  Start Recording
+                </>
               )}
             </Button>
           </div>
