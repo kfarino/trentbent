@@ -14,11 +14,18 @@ export const metadata: Metadata = {
     description: 'Generate hilarious limericks for Trent\'s bachelor party by answering questions about our beloved groom-to-be.',
     siteName: 'Trent gets Bent',
     type: 'website',
+    images: [{
+      url: '/opengraph-image.png',
+      width: 1200,
+      height: 630,
+      alt: 'Trent gets Bent - Bachelor Party Limerick Generator',
+    }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Trent gets Bent',
     description: 'Generate hilarious limericks for Trent\'s bachelor party by answering questions about our beloved groom-to-be.',
+    images: '/opengraph-image.png',
   },
   icons: {
     icon: [{
