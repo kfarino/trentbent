@@ -18,6 +18,7 @@ export const metadata: Metadata = {
       width: 1200,
       height: 630,
       alt: 'Trent gets Bent - Bachelor Party Limerick Generator',
+      type: 'image/png',
     }],
     type: 'website',
     locale: 'en_US',
@@ -26,7 +27,10 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Trent gets Bent',
     description: 'Generate hilarious limericks for Trent\'s bachelor party by answering questions about our beloved groom-to-be.',
-    images: ['/opengraph-image.png'],
+    images: {
+      url: '/opengraph-image.png',
+      alt: 'Trent gets Bent - Bachelor Party Limerick Generator',
+    },
   },
   icons: {
     icon: [{
