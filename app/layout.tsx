@@ -12,6 +12,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Trent gets Bent',
     description: 'Generate hilarious limericks for Trent\'s bachelor party by answering questions about our beloved groom-to-be.',
+    siteName: 'Trent gets Bent',
     images: [{
       url: '/opengraph-image.png',
       width: 1200,
@@ -19,6 +20,7 @@ export const metadata: Metadata = {
       alt: 'Trent gets Bent - Bachelor Party Limerick Generator',
     }],
     type: 'website',
+    locale: 'en_US',
   },
   twitter: {
     card: 'summary_large_image',
