@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Remove any turbo: true configuration if it exists
+  images: {
+    unoptimized: true
+  }
 }
 
 module.exports = nextConfig 

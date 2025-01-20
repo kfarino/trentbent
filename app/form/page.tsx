@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
-import { Mic } from 'lucide-react'
+import { Mic, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 const questions = [
@@ -14,7 +14,7 @@ const questions = [
   "What's the most embarrassing story you know about Trent?",
   "What's Trent's most ridiculous habit?",
   "What's something Trent thinks he's good at, but isn't?",
-  "What's the funniest thing you've seen Trent do when drunk?",
+  "What's the funniest thing you've seen Trent do?",
   "What's the most annoying thing about Trent?"
 ]
 
@@ -96,14 +96,6 @@ export default function Form() {
     }
   }
 
-  const handleNext = () => {
-    if (step === questions.length - 1) {
-      handleSubmit()
-    } else {
-      setStep(step + 1)
-    }
-  }
-
   const handleToggleRecording = async () => {
     if (!recognition) {
       toast.error('Speech recognition is not available')
@@ -111,16 +103,21 @@ export default function Form() {
     }
 
     if (isRecording) {
-      // Stop recording and submit
-      recognition.stop()
-      setIsRecording(false)
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop())
+      if (step === questions.length - 1) {
+        // On last question, stop recording and generate
+        recognition.stop()
+        setIsRecording(false)
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(track => track.stop())
+        }
+        if (audioContext.current?.state === 'running') {
+          await audioContext.current.close()
+        }
+        handleSubmit()
+      } else {
+        // Just move to next question, keep recording
+        setStep(step + 1)
       }
-      if (audioContext.current?.state === 'running') {
-        await audioContext.current.close()
-      }
-      handleSubmit()
     } else {
       // Start recording
       try {
@@ -151,7 +148,10 @@ export default function Form() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ transcript: fullTranscript }),
+        body: JSON.stringify({ 
+          transcript: fullTranscript,
+          previousTranscripts: []
+        }),
         signal: controller.signal
       })
 
@@ -159,16 +159,16 @@ export default function Form() {
       const data = await response.json()
 
       if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Failed to generate limerick')
+        throw new Error(data.error || 'Failed to generate limericks')
       }
 
-      router.push(`/results?limericks=${encodeURIComponent(JSON.stringify([data.limerick]))}`)
+      router.push(`/results?limericks=${encodeURIComponent(JSON.stringify(data.limericks))}&transcripts=${encodeURIComponent(JSON.stringify([fullTranscript]))}`)
     } catch (error: unknown) {
       console.error('Error:', error)
       if (error instanceof Error && error.name === 'AbortError') {
         toast.error('Generation timed out. Please try again.')
       } else {
-        toast.error(error instanceof Error ? error.message : 'Failed to generate limerick')
+        toast.error(error instanceof Error ? error.message : 'Failed to generate limericks')
       }
     } finally {
       setIsLoading(false)
@@ -178,16 +178,25 @@ export default function Form() {
 
   return (
     <main className="min-h-[100dvh] bg-gradient-to-b from-zinc-900 to-zinc-800 flex flex-col items-center justify-center p-4">
-      <Card className="w-full max-w-md mx-auto backdrop-blur-sm bg-white/10">
-        <CardContent className="p-4 space-y-8">
-          <div className="space-y-2">
+      <Card className={`w-full max-w-md mx-auto backdrop-blur-sm transition-colors duration-200 ${isLoading ? 'bg-black/40' : 'bg-white/10'}`}>
+        <CardContent className="p-6 space-y-8 relative">
+          {isLoading && (
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center rounded-lg z-50">
+              <div className="text-center space-y-4">
+                <Loader2 className="w-8 h-8 text-amber-400 animate-spin mx-auto" />
+                <p className="text-white font-medium">Crafting your roasts...</p>
+              </div>
+            </div>
+          )}
+
+          <div className={`space-y-2 transition-opacity duration-200 ${isLoading ? 'opacity-50' : 'opacity-100'}`}>
             <h2 className="text-xl md:text-2xl font-bold text-center text-white">
               Question {step + 1} of {questions.length}
             </h2>
             <Progress value={progress} className="h-2" />
           </div>
 
-          <div className="space-y-6">
+          <div className={`space-y-6 transition-opacity duration-200 ${isLoading ? 'opacity-50' : 'opacity-100'}`}>
             <p className="text-lg text-zinc-200 text-center">{questions[step]}</p>
             
             {isRecording && (
@@ -208,14 +217,10 @@ export default function Form() {
             )}
 
             <Button
-              onClick={isRecording ? handleNext : handleToggleRecording}
+              onClick={handleToggleRecording}
               disabled={isLoading}
               size="lg"
-              className={`w-full h-16 ${
-                isRecording 
-                  ? 'bg-amber-500 hover:bg-amber-600' 
-                  : 'bg-amber-500 hover:bg-amber-600'
-              } text-black transition-colors duration-200`}
+              className="w-full h-16 bg-amber-500 hover:bg-amber-600 text-black transition-colors duration-200"
             >
               {isRecording ? (
                 step === questions.length - 1 ? 'Finish & Generate' : 'Next Question'

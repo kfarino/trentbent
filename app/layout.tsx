@@ -9,8 +9,18 @@ export const metadata: Metadata = {
   title: 'Trent Gets Bent',
   description: 'Bachelor Party Limerick Generator',
   icons: {
-    icon: '/icon.svg',
-    apple: '/apple-icon.svg'
+    icon: [
+      {
+        url: '/icon.svg',
+        type: 'image/svg+xml',
+      }
+    ],
+    apple: [
+      {
+        url: '/apple-icon.svg',
+        type: 'image/svg+xml',
+      }
+    ]
   }
 }
 
